@@ -1,29 +1,18 @@
-// Package static is a static router which returns the service name as the address + port
 package static
 
 import (
-	"fmt"
-	"net"
-
-	"github.com/micro/go-micro/v3/router"
-)
-
-var (
-	// DefaulPort is the port to append where nothing is set
-	DefaultPort = 8080
+	"github.com/unistack-org/micro/v3/router"
 )
 
 // NewRouter returns an initialized static router
 func NewRouter(opts ...router.Option) router.Router {
-	options := router.DefaultOptions()
-	for _, o := range opts {
-		o(&options)
-	}
-	return &static{options}
+	options := router.NewOptions(opts...)
+	return &static{options, new(table)}
 }
 
 type static struct {
 	options router.Options
+	table   router.Table
 }
 
 func (s *static) Init(opts ...router.Option) error {
@@ -41,33 +30,12 @@ func (s *static) Table() router.Table {
 	return nil
 }
 
-func (s *static) Lookup(service string, opts ...router.LookupOption) ([]router.Route, error) {
-	options := router.NewLookup(opts...)
-
-	_, _, err := net.SplitHostPort(service)
-	if err == nil {
-		// use the address
-		options.Address = service
-	} else {
-		options.Address = fmt.Sprintf("%s:%d", service, DefaultPort)
-	}
-
-	return []router.Route{
-		router.Route{
-			Service: service,
-			Address: options.Address,
-			Gateway: options.Gateway,
-			Network: options.Network,
-			Router:  options.Router,
-		},
-	}, nil
+func (s *static) Lookup(opts ...router.QueryOption) ([]router.Route, error) {
+	return s.table.Query(opts...)
 }
 
-// Watch will return a noop watcher
 func (s *static) Watch(opts ...router.WatchOption) (router.Watcher, error) {
-	return &watcher{
-		events: make(chan *router.Event),
-	}, nil
+	return nil, nil
 }
 
 func (s *static) Close() error {
@@ -78,23 +46,34 @@ func (s *static) String() string {
 	return "static"
 }
 
-// watcher is a noop implementation
-type watcher struct {
-	events chan *router.Event
+type table struct{}
+
+func (t *table) Create(router.Route) error {
+	return nil
 }
 
-// Next is a blocking call that returns watch result
-func (w *watcher) Next() (*router.Event, error) {
-	e := <-w.events
-	return e, nil
+func (t *table) Delete(router.Route) error {
+	return nil
 }
 
-// Chan returns event channel
-func (w *watcher) Chan() (<-chan *router.Event, error) {
-	return w.events, nil
+func (t *table) Update(router.Route) error {
+	return nil
 }
 
-// Stop stops watcher
-func (w *watcher) Stop() {
-	return
+func (t *table) List() ([]router.Route, error) {
+	return nil, nil
+}
+
+func (t *table) Query(opts ...router.QueryOption) ([]router.Route, error) {
+	options := router.NewQuery(opts...)
+
+	return []router.Route{
+		{
+			Address: options.Service,
+			Service: options.Address,
+			Gateway: options.Gateway,
+			Network: options.Network,
+			Router:  options.Router,
+		},
+	}, nil
 }
