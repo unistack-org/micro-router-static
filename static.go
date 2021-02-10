@@ -22,6 +22,10 @@ func (s *static) Init(opts ...router.Option) error {
 	return nil
 }
 
+func (s *static) Name() string {
+	return s.options.Name
+}
+
 func (s *static) Options() router.Options {
 	return s.options
 }
